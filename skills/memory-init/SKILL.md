@@ -92,7 +92,17 @@ Then ask user whether they also want to create default global files under the co
 - `{globalMemory}/MEMORY.md` from `memory-template.md`
 - `{globalMemory}/TASK.md` from `task-template.md`
 
+> **Only offer files that do not already exist, and never overwrite an existing global file.**
+> These may already be present (from a prior init or a synced repo) and may contain real user
+> content. Check each path first; skip the ones that exist and report them as "already present"
+> instead of recreating them.
+
 ### Step 3: Copy Template Files for Project Memory (Optional)
+
+Project core memory is **only** `TASK.md`, `USER.md`, and the `project/` directory.
+
+> **Do not create `MEMORY.md` in project core.** `MEMORY.md` is global-only (it lives under
+> `{globalMemory}/`, see Step 2). Never offer it or write it as a project template.
 
 Ask user which project templates to create in [templates/](templates/):
 
@@ -103,11 +113,12 @@ Which project template files would you like to create? (select all that apply)
 3. None (skip project templates)
 ```
 
-If user selects templates, copy them from `templates/` to the target paths:
+If user selects templates, copy them from `templates/` to the target paths.
+**Only create files that do not already exist; never overwrite an existing project file:**
 
 ```bash
-cp templates/task-template.md {projectMemoryDir}/core/TASK.md
-cp templates/user-template.md {projectMemoryDir}/core/USER.md
+[ -f {projectMemoryDir}/core/TASK.md ] || cp templates/task-template.md {projectMemoryDir}/core/TASK.md
+[ -f {projectMemoryDir}/core/USER.md ] || cp templates/user-template.md {projectMemoryDir}/core/USER.md
 ```
 
 ### Step 4: Import Preferences from AGENTS.md (Optional)
