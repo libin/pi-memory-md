@@ -80,10 +80,16 @@ main() {
   
   LOCAL_PATH="${LOCAL_PATH:-$HOME/.pi/memory-md}"
   LOCAL_PATH=$(eval echo "$LOCAL_PATH")
-  
-  if [ -z "$REPO_URL" ]; then
-    error "repoUrl not configured in settings"
+
+  # Preflight: never use the extension source checkout as the memory store.
+  if [ -f "$LOCAL_PATH/package.json" ] && grep -q '"name"[[:space:]]*:[[:space:]]*"pi-memory-md"' "$LOCAL_PATH/package.json" 2>/dev/null; then
+    error "localPath ($LOCAL_PATH) points at the pi-memory-md extension source, not a memory store."
+    error "Set memoryDir.localPath to a dedicated directory such as ~/.pi/memory-md."
     exit 1
+  fi
+
+  if [ -z "$REPO_URL" ]; then
+    log "No repoUrl configured — using a local-only store (no git clone/sync)."
   fi
   
   # 2. Calculate directories
@@ -103,18 +109,28 @@ main() {
     exit 0
   fi
   
-  # 4. Sync git repository
-  if [ ! -d "$LOCAL_PATH" ]; then
-    log "Cloning repository..."
-    git clone "$REPO_URL" "$LOCAL_PATH"
-  elif [ ! -d "$LOCAL_PATH/.git" ]; then
-    error "Directory exists but is not a git repository: $LOCAL_PATH"
-    exit 1
+  # 4. Obtain or sync the store (git only when repoUrl is set)
+  if [ -n "$REPO_URL" ]; then
+    if [ ! -d "$LOCAL_PATH" ]; then
+      log "Cloning repository..."
+      if ! git clone "$REPO_URL" "$LOCAL_PATH"; then
+        error "Clone failed for $REPO_URL"
+        error "If this is an auth error: add an SSH key to your Git host, or use an HTTPS repoUrl with a token."
+        error "To set up without git, remove repoUrl from settings for a local-only store."
+        exit 1
+      fi
+    elif [ ! -d "$LOCAL_PATH/.git" ]; then
+      error "Directory exists but is not a git repository: $LOCAL_PATH"
+      error "Remove it, point localPath elsewhere, or omit repoUrl for a local-only store."
+      exit 1
+    else
+      log "Syncing repository..."
+      cd "$LOCAL_PATH"
+      git fetch origin
+      git pull origin main 2>/dev/null || git pull origin master 2>/dev/null || log "No remote changes"
+    fi
   else
-    log "Syncing repository..."
-    cd "$LOCAL_PATH"
-    git fetch origin
-    git pull origin main 2>/dev/null || git pull origin master 2>/dev/null || log "No remote changes"
+    mkdir -p "$LOCAL_PATH"
   fi
   
   # 5. Create directory structure
