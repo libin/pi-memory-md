@@ -26,6 +26,11 @@ export function writeText(filePath: string, content: string): void {
 export function initGitRepo(repoPath: string): void {
   fs.mkdirSync(repoPath, { recursive: true });
   execFileSync("git", ["init", "-q"], { cwd: repoPath, stdio: "ignore" });
+  execFileSync("git", ["config", "user.email", "test@test.com"], { cwd: repoPath, stdio: "ignore" });
+  execFileSync("git", ["config", "user.name", "Test"], { cwd: repoPath, stdio: "ignore" });
+  // Do not inherit the developer's global commit signing (e.g. x509/gpg), which
+  // would make fixture commits fail non-interactively.
+  execFileSync("git", ["config", "commit.gpgsign", "false"], { cwd: repoPath, stdio: "ignore" });
 }
 
 export function createSessionManager(entries: SessionEntry[] = [], leafId?: string | null): any {

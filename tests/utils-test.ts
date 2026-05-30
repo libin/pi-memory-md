@@ -11,6 +11,7 @@ function createGitRepo(repoPath: string): void {
   execFileSync("git", ["init", "-q", "--initial-branch=main"], { cwd: repoPath, stdio: "ignore" });
   execFileSync("git", ["config", "user.email", "test@test.com"], { cwd: repoPath, stdio: "ignore" });
   execFileSync("git", ["config", "user.name", "Test"], { cwd: repoPath, stdio: "ignore" });
+  execFileSync("git", ["config", "commit.gpgsign", "false"], { cwd: repoPath, stdio: "ignore" });
   fs.writeFileSync(path.join(repoPath, "README.md"), "test");
   execFileSync("git", ["add", "."], { cwd: repoPath, stdio: "ignore" });
   execFileSync("git", ["commit", "-m", "init"], { cwd: repoPath, stdio: "ignore" });
