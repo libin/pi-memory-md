@@ -10,6 +10,7 @@ import {
   DEFAULT_SETTINGS,
   getGlobalMemoryDir,
   getMemoryDir,
+  isMemoryInitialized,
   loadSettings,
   readMemoryFileAsync,
   writeMemoryFile,
@@ -397,4 +398,23 @@ test("getMemoryDir uses mainRoot project name for worktrees", () => {
 
   const memoryDir = getMemoryDir(settings, worktreePath);
   assert.equal(memoryDir, path.join(settings.localPath, "main-project"));
+});
+
+test("isMemoryInitialized recognizes core/project created by memory-init.sh (issue #10)", () => {
+  const memoryDir = createTempDir("pi-memory-md-init-check");
+  assert.equal(isMemoryInitialized(memoryDir), false);
+
+  // memory-init.sh always creates core/project and never creates core/user.
+  fs.mkdirSync(path.join(memoryDir, "core", "project"), { recursive: true });
+  assert.equal(isMemoryInitialized(memoryDir), true);
+});
+
+test("isMemoryInitialized recognizes optional core marker files", () => {
+  for (const marker of ["TASK.md", "USER.md", "MEMORY.md"]) {
+    const memoryDir = createTempDir("pi-memory-md-init-marker");
+    fs.mkdirSync(path.join(memoryDir, "core"), { recursive: true });
+    assert.equal(isMemoryInitialized(memoryDir), false);
+    fs.writeFileSync(path.join(memoryDir, "core", marker), "x");
+    assert.equal(isMemoryInitialized(memoryDir), true, `marker ${marker} should mark initialized`);
+  }
 });

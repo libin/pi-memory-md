@@ -243,8 +243,17 @@ export function getMemoryUserDir(memoryDir: string): string {
   return path.join(getMemoryCoreDir(memoryDir), "user");
 }
 
+export function getMemoryProjectDir(memoryDir: string): string {
+  return path.join(getMemoryCoreDir(memoryDir), "project");
+}
+
 export function isMemoryInitialized(memoryDir: string): boolean {
-  return fs.existsSync(getMemoryUserDir(memoryDir));
+  const coreDir = getMemoryCoreDir(memoryDir);
+  // Align with memory-init.sh: initialization always creates core/project,
+  // and core marker files (TASK.md / USER.md / MEMORY.md) are optional.
+  // Checking core/user here was stale — that directory is never created.
+  if (fs.existsSync(getMemoryProjectDir(memoryDir))) return true;
+  return ["TASK.md", "USER.md", "MEMORY.md"].some((file) => fs.existsSync(path.join(coreDir, file)));
 }
 
 export async function getMemoryMeta(settings: MemoryMdSettings, cwd: string): Promise<MemoryMeta> {
