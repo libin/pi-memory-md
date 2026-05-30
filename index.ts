@@ -614,7 +614,7 @@ function registerMemoryCommands(pi: ExtensionAPI, settings: MemoryMdSettings, st
 
       if (!info.initialized) {
         ctx.ui.notify(
-          `Memory: ${info.name} | Repo: Not initialized | Use /memory-init to set up | Path: ${info.memoryPath}`,
+          `Memory: ${info.name} | Repo: Not initialized | Ask the agent to run the memory-init skill to set up | Path: ${info.memoryPath}`,
           "info",
         );
         return;

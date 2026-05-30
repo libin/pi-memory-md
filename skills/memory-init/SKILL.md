@@ -8,24 +8,80 @@ description: Initialize memory repository - clone git repo and create directory 
 1. Run [scripts/memory-init.sh](scripts/memory-init.sh) to clone/sync repo and create directories
 2. Read and copy template files from [templates/](templates/) (user decides which)
 
+> **Resolve paths against this skill's directory, not the current working directory.**
+> `scripts/memory-init.sh` and `templates/` mean `<dir of this SKILL.md>/scripts/memory-init.sh`
+> and `<dir of this SKILL.md>/templates/`. Find the skill directory first, then use the
+> absolute path. Do **not** run `bash scripts/memory-init.sh` from a random cwd.
+>
+> **These files ship with the skill. If the script or templates are missing, STOP and report
+> the absolute path you searched. Never recreate `scripts/` or `templates/` yourself, and never
+> write them into the extension source checkout.** Recreating them produces broken duplicates.
+
+## TL;DR (happy path)
+
+```bash
+SKILL_DIR="<absolute dir containing this SKILL.md>"
+bash "$SKILL_DIR/scripts/memory-init.sh"   # idempotent; reads settings, creates dirs
+```
+
+Then optionally copy templates (Step 3), then verify with the `memory_check` tool. The script is
+plain bash and needs no model reasoning — run it as-is. Everything after it is optional.
+
 ## Prerequisites
 
 Before running this skill, ensure:
 - Package installed: `pi install npm:pi-memory-md`
-- Settings configured with `repoUrl` in your settings file
-- Git repository created and accessible
+- `pi-memory-md` configured in your settings file (see schema below). At minimum `localPath`
+  must be set; `repoUrl` is required **only** if you want git clone/sync.
+- If using git sync: the repo exists, you can push to it, and this machine has a working
+  GitHub credential (SSH key added to your account, or an HTTPS token). No credential =
+  clone/sync will fail with `Permission denied (publickey)`; use a local-only store instead
+  (omit `repoUrl`).
+
+### Settings schema
+
+Global settings live in `~/.pi/agent/settings.json` (i.e. `$PI_CODING_AGENT_DIR/settings.json`),
+or project-level `./.pi/settings.json`. The block is keyed by `pi-memory-md`:
+
+```json
+{
+  "pi-memory-md": {
+    "enabled": true,
+    "autoSync": { "onSessionStart": true },
+    "memoryDir": {
+      "repoUrl": "git@github.com:<you>/<your-memory-repo>.git",
+      "localPath": "~/.pi/memory-md",
+      "globalMemory": "global"
+    }
+  }
+}
+```
+
+> **Three things that break setups — check before writing settings:**
+> - The settings file is `~/.pi/agent/settings.json`, **not** `~/.pi/settings.json` (the latter is ignored).
+> - `localPath` is a **dedicated memory store** (e.g. `~/.pi/memory-md`). It is **never** the
+>   extension source checkout (the directory containing this package's `package.json`).
+> - `repoUrl` is a repo **you** can push to (your own fork/memory repo), not the upstream project.
+>   Omit `repoUrl` entirely for a local-only store with no git.
+>
+> For a local-only store (no git), set `localPath` + optional `globalMemory`, omit `repoUrl`,
+> and skip the clone — the script creates the directories directly.
 
 ## Execution Steps
 
 ### Step 1: Run Initialization Script
 
-Execute the initialization script: [scripts/memory-init.sh](scripts/memory-init.sh)
+Execute the initialization script at `<skill dir>/scripts/memory-init.sh` (use the absolute
+path; see the path note in Overview). The script is idempotent and safe to re-run.
+
+If the script is not found, **STOP** — report the absolute path searched and do not recreate it.
 
 The script will:
 1. Read settings from `.pi/settings.json` or `$PI_CODING_AGENT_DIR/settings.json`
 2. Calculate memory directories
-3. Clone or sync the git repository
-4. Create `core/project/`
+3. Refuse to run if `localPath` points at the extension source checkout
+4. Clone or sync the git repository (only when `repoUrl` is set)
+5. Create `core/project/`
 
 ### Step 2: Configure globalMemory (if applicable)
 
@@ -36,7 +92,17 @@ Then ask user whether they also want to create default global files under the co
 - `{globalMemory}/MEMORY.md` from `memory-template.md`
 - `{globalMemory}/TASK.md` from `task-template.md`
 
+> **Only offer files that do not already exist, and never overwrite an existing global file.**
+> These may already be present (from a prior init or a synced repo) and may contain real user
+> content. Check each path first; skip the ones that exist and report them as "already present"
+> instead of recreating them.
+
 ### Step 3: Copy Template Files for Project Memory (Optional)
+
+Project core memory is **only** `TASK.md`, `USER.md`, and the `project/` directory.
+
+> **Do not create `MEMORY.md` in project core.** `MEMORY.md` is global-only (it lives under
+> `{globalMemory}/`, see Step 2). Never offer it or write it as a project template.
 
 Ask user which project templates to create in [templates/](templates/):
 
@@ -47,11 +113,12 @@ Which project template files would you like to create? (select all that apply)
 3. None (skip project templates)
 ```
 
-If user selects templates, copy them from `templates/` to the target paths:
+If user selects templates, copy them from `templates/` to the target paths.
+**Only create files that do not already exist; never overwrite an existing project file:**
 
 ```bash
-cp templates/task-template.md {projectMemoryDir}/core/TASK.md
-cp templates/user-template.md {projectMemoryDir}/core/USER.md
+[ -f {projectMemoryDir}/core/TASK.md ] || cp templates/task-template.md {projectMemoryDir}/core/TASK.md
+[ -f {projectMemoryDir}/core/USER.md ] || cp templates/user-template.md {projectMemoryDir}/core/USER.md
 ```
 
 ### Step 4: Import Preferences from AGENTS.md (Optional)
