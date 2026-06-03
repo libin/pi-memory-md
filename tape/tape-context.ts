@@ -446,7 +446,7 @@ export class MemoryFileSelector {
     entry: ContextFileEntry,
     highlightedPaths: Set<string>,
     rangeMap: Map<string, LineRange[]>,
-    frontmatter: { description: string; tags: string },
+    frontmatter: { description: string; tags: string; status?: string },
   ): void {
     lines.push(...this.renderMemoryEntryLines(entry, highlightedPaths, frontmatter));
     this.appendLineRanges(lines, entry.absolutePath, rangeMap);
@@ -455,7 +455,7 @@ export class MemoryFileSelector {
   private renderMemoryEntryLines(
     entry: ContextFileEntry,
     highlightedPaths: Set<string>,
-    frontmatter: { description: string; tags: string },
+    frontmatter: { description: string; tags: string; status?: string },
   ): string[] {
     const priority = highlightedPaths.has(entry.absolutePath) ? "high" : "normal";
     return memoryContextItemTpl({
@@ -463,6 +463,7 @@ export class MemoryFileSelector {
       priority,
       description: frontmatter.description,
       tags: frontmatter.tags,
+      status: frontmatter.status,
     });
   }
 
@@ -657,15 +658,17 @@ export class MemoryFileSelector {
       .map(({ relPath }) => relPath);
   }
 
-  private parseFrontmatter(content: string): { description: string; tags: string } {
+  private parseFrontmatter(content: string): { description: string; tags: string; status?: string } {
     const { data } = matter(content);
+    const status = typeof data.status === "string" ? data.status.trim() : undefined;
     return {
       description: (data.description as string)?.trim() || "No description",
       tags: Array.isArray(data.tags) && data.tags.length > 0 ? data.tags.join(", ") : "none",
+      status: status || undefined,
     };
   }
 
-  private async extractFrontmatterAsync(filePath: string): Promise<{ description: string; tags: string }> {
+  private async extractFrontmatterAsync(filePath: string): Promise<{ description: string; tags: string; status?: string }> {
     try {
       return this.parseFrontmatter(await fs.promises.readFile(filePath, "utf-8"));
     } catch {

@@ -5,7 +5,7 @@ import path from "node:path";
 import matter from "gray-matter";
 import { DEFAULT_HOOKS, normalizeHooks } from "./hooks.js";
 import { normalizeTapeKeywords } from "./tape/tape-gate.js";
-import type { MemoryFile, MemoryFrontmatter, MemoryMdSettings, MemoryMeta, ParsedFrontmatter } from "./types.js";
+import type { MemoryFile, MemoryFrontmatter, MemoryMdSettings, MemoryMeta, MemoryStatus, ParsedFrontmatter } from "./types.js";
 import { DEFAULT_LOCAL_PATH, DEFAULT_TAPE_EXCLUDE_DIRS, escapeXml, expandHomePath, getProjectMeta } from "./utils.js";
 
 export * from "./types.js";
@@ -324,6 +324,15 @@ export function renderMemoryTree(memoryDir: string, maxLines = 25): string {
   }
 }
 
+export const MEMORY_STATUS_VALUES: MemoryStatus[] = ["verified", "done", "in-progress", "failed", "superseded"];
+
+// Delivered with the memory index so the model treats status as an outcome signal.
+export const MEMORY_STATUS_INSTRUCTION =
+  "When a memory file has a `status`, treat it as the outcome of past work " +
+  "(verified/done = already accomplished; failed = an approach that did not work; " +
+  "in-progress = unfinished; superseded = replaced). Before redoing work, check memory: " +
+  "do not silently repeat work marked done/verified or retry an approach marked failed \u2014 surface it and ask.";
+
 function validateFrontmatter(data: ParsedFrontmatter): { valid: boolean; error?: string } {
   if (!data) {
     return { valid: false, error: "No frontmatter found (requires --- delimiters)" };
@@ -341,6 +350,13 @@ function validateFrontmatter(data: ParsedFrontmatter): { valid: boolean; error?:
 
   if (frontmatter.tags !== undefined && !Array.isArray(frontmatter.tags)) {
     return { valid: false, error: "'tags' must be an array of strings" };
+  }
+
+  if (frontmatter.status !== undefined && !MEMORY_STATUS_VALUES.includes(frontmatter.status as MemoryStatus)) {
+    return {
+      valid: false,
+      error: `'status' must be one of: ${MEMORY_STATUS_VALUES.join(", ")}`,
+    };
   }
 
   return { valid: true };
@@ -490,14 +506,19 @@ export function memoryContextItemTpl(entry: {
   description?: string;
   tags?: string[] | string;
   priority?: "normal" | "high";
+  status?: string;
 }): string[] {
   const tags = Array.isArray(entry.tags) ? entry.tags.join(", ") : entry.tags;
-  return [
+  const lines = [
     `- path: ${entry.path}`,
     `  priority: ${entry.priority ?? "normal"}`,
     `  description: ${entry.description || "No description"}`,
     `  tags: ${tags || "none"}`,
   ];
+  if (entry.status) {
+    lines.push(`  status: ${entry.status}`);
+  }
+  return lines;
 }
 
 export function memoryContextHeaderTpl(
@@ -510,6 +531,7 @@ export function memoryContextHeaderTpl(
     lines.push(
       "<instructions>",
       "These memory files can help you better understand the project and the user.",
+      MEMORY_STATUS_INSTRUCTION,
       "</instructions>",
     );
   }
@@ -518,6 +540,7 @@ export function memoryContextHeaderTpl(
     lines.push(
       "<instructions>",
       "Tape is enabled for this conversation. Use tape tools when you need anchors or tape history.",
+      MEMORY_STATUS_INSTRUCTION,
     );
 
     if (options.handoffMode === "manual") {
@@ -547,8 +570,8 @@ export function memoryContextTpl(
       continue;
     }
 
-    const { description, tags } = entry.memory.frontmatter;
-    lines.push(...memoryContextItemTpl({ path: entry.path, description, tags }));
+    const { description, tags, status } = entry.memory.frontmatter;
+    lines.push(...memoryContextItemTpl({ path: entry.path, description, tags, status }));
   }
 
   return lines;

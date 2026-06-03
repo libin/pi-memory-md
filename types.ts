@@ -5,10 +5,13 @@ import type { TapeConfig } from "./tape/tape-types.js";
  * Type definitions for memory files, settings, and git operations.
  */
 
+export type MemoryStatus = "verified" | "done" | "in-progress" | "failed" | "superseded";
+
 export interface MemoryFrontmatter {
   description: string;
   limit?: number;
   tags?: string[];
+  status?: MemoryStatus;
   created?: string;
   updated?: string;
 }

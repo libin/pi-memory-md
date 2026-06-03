@@ -12,6 +12,9 @@ import {
   getMemoryDir,
   isMemoryInitialized,
   loadSettings,
+  MEMORY_STATUS_INSTRUCTION,
+  memoryContextHeaderTpl,
+  memoryContextItemTpl,
   readMemoryFileAsync,
   writeMemoryFile,
 } from "../memory-core.js";
@@ -416,5 +419,33 @@ test("isMemoryInitialized recognizes optional core marker files", () => {
     assert.equal(isMemoryInitialized(memoryDir), false);
     fs.writeFileSync(path.join(memoryDir, "core", marker), "x");
     assert.equal(isMemoryInitialized(memoryDir), true, `marker ${marker} should mark initialized`);
+  }
+});
+
+test("memoryContextItemTpl emits a status line only when status is set", () => {
+  const withStatus = memoryContextItemTpl({
+    path: "core/project/cache.md",
+    description: "Redis cache fix",
+    tags: ["redis"],
+    status: "verified",
+  });
+  assert.ok(withStatus.includes("  status: verified"), "status line should be present");
+
+  const withoutStatus = memoryContextItemTpl({
+    path: "core/project/plain.md",
+    description: "no status",
+    tags: ["a"],
+  });
+  assert.ok(
+    !withoutStatus.some((line) => line.startsWith("  status:")),
+    "no status line when status is absent",
+  );
+});
+
+test("delivered memory context header carries the status/redo instruction", () => {
+  for (const mode of ["normal", "tape"] as const) {
+    const header = memoryContextHeaderTpl(mode).join("\n");
+    assert.ok(header.includes(MEMORY_STATUS_INSTRUCTION), `${mode} header should include status instruction`);
+    assert.ok(/do not silently repeat/.test(MEMORY_STATUS_INSTRUCTION), "instruction covers the no-redo rule");
   }
 });

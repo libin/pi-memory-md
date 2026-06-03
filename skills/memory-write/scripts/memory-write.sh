@@ -5,12 +5,15 @@ usage() {
   cat <<'USAGE'
 Usage:
   memory-write.sh project-dir
-  memory-write.sh create <memory-dir> <relative-path> <description> [comma-tags]
+  memory-write.sh create <memory-dir> <relative-path> <description> [comma-tags] [status]
   memory-write.sh touch  <memory-dir> <relative-path>
+  memory-write.sh set-status <memory-dir> <relative-path> <status>
 
-Get the current project memory directory, creates a Markdown memory template
-with required YAML frontmatter, or updates the frontmatter updated date for an
-existing memory file.
+Get the current project memory directory, create a Markdown memory template
+with required YAML frontmatter, refresh the frontmatter updated date, or set
+the outcome status of an existing memory file.
+
+status is one of: verified | done | in-progress | failed | superseded
 USAGE
 }
 
@@ -21,6 +24,17 @@ fail() {
 
 current_date() {
   date +%F
+}
+
+VALID_STATUS="verified done in-progress failed superseded"
+
+validate_status() {
+  local status="$1"
+  local valid
+  for valid in $VALID_STATUS; do
+    [[ "$status" == "$valid" ]] && return 0
+  done
+  fail "invalid status '$status' (must be one of: ${VALID_STATUS// /, })"
 }
 
 find_settings() {
@@ -118,12 +132,14 @@ create_file() {
   local rel_path="$2"
   local description="$3"
   local tags="${4:-}"
+  local status="${5:-}"
   local today target target_dir title tmp
 
   [[ -d "$memory_dir" ]] || fail "memory dir does not exist: $memory_dir"
   validate_relative_path "$rel_path"
   assert_no_symlink_path "$memory_dir" "$rel_path"
   [[ -n "$description" ]] || fail "description is required"
+  [[ -z "$status" ]] || validate_status "$status"
 
   target="$memory_dir/$rel_path"
   target_dir="$(dirname "$target")"
@@ -140,6 +156,7 @@ create_file() {
     echo "---"
     printf 'description: %s\n' "$(escape_yaml_string "$description")"
     write_tags "$tags"
+    [[ -z "$status" ]] || printf 'status: %s\n' "$(escape_yaml_string "$status")"
     printf 'created: "%s"\n' "$today"
     printf 'updated: "%s"\n' "$today"
     echo "---"
@@ -194,6 +211,52 @@ touch_file() {
   echo "$target"
 }
 
+set_status_file() {
+  local memory_dir="$1"
+  local rel_path="$2"
+  local status="$3"
+  local target today tmp
+
+  [[ -d "$memory_dir" ]] || fail "memory dir does not exist: $memory_dir"
+  validate_relative_path "$rel_path"
+  assert_no_symlink_path "$memory_dir" "$rel_path"
+  validate_status "$status"
+
+  target="$memory_dir/$rel_path"
+  [[ -f "$target" ]] || fail "file does not exist: $target"
+
+  today="$(current_date)"
+  tmp="$(mktemp)"
+
+  awk -v today="$today" -v status="$status" '
+    BEGIN { in_fm=0; done=0; saw_status=0; saw_updated=0 }
+    NR == 1 && $0 == "---" { in_fm=1; print; next }
+    in_fm && $0 == "---" {
+      if (!saw_status) print "status: \"" status "\""
+      if (!saw_updated) print "updated: \"" today "\""
+      in_fm=0; done=1; print; next
+    }
+    in_fm && $0 ~ /^status:[[:space:]]*/ {
+      print "status: \"" status "\""
+      saw_status=1
+      next
+    }
+    in_fm && $0 ~ /^updated:[[:space:]]*/ {
+      print "updated: \"" today "\""
+      saw_updated=1
+      next
+    }
+    { print }
+    END { if (!done) exit 2 }
+  ' "$target" > "$tmp" || {
+    rm -f "$tmp"
+    fail "file must start with YAML frontmatter delimited by ---"
+  }
+
+  mv "$tmp" "$target"
+  echo "$target"
+}
+
 main() {
   local command="${1:-}"
   case "$command" in
@@ -202,12 +265,16 @@ main() {
       resolve_project_dir
       ;;
     create)
-      [[ $# -ge 4 && $# -le 5 ]] || { usage; exit 2; }
-      create_file "$2" "$3" "$4" "${5:-}"
+      [[ $# -ge 4 && $# -le 6 ]] || { usage; exit 2; }
+      create_file "$2" "$3" "$4" "${5:-}" "${6:-}"
       ;;
     touch)
       [[ $# -eq 3 ]] || { usage; exit 2; }
       touch_file "$2" "$3"
+      ;;
+    set-status)
+      [[ $# -eq 4 ]] || { usage; exit 2; }
+      set_status_file "$2" "$3" "$4"
       ;;
     -h|--help|help|"")
       usage
