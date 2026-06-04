@@ -668,7 +668,9 @@ export class MemoryFileSelector {
     };
   }
 
-  private async extractFrontmatterAsync(filePath: string): Promise<{ description: string; tags: string; status?: string }> {
+  private async extractFrontmatterAsync(
+    filePath: string,
+  ): Promise<{ description: string; tags: string; status?: string }> {
     try {
       return this.parseFrontmatter(await fs.promises.readFile(filePath, "utf-8"));
     } catch {

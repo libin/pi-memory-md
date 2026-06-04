@@ -436,10 +436,7 @@ test("memoryContextItemTpl emits a status line only when status is set", () => {
     description: "no status",
     tags: ["a"],
   });
-  assert.ok(
-    !withoutStatus.some((line) => line.startsWith("  status:")),
-    "no status line when status is absent",
-  );
+  assert.ok(!withoutStatus.some((line) => line.startsWith("  status:")), "no status line when status is absent");
 });
 
 test("delivered memory context header carries the status/redo instruction", () => {

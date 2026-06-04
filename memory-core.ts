@@ -5,7 +5,14 @@ import path from "node:path";
 import matter from "gray-matter";
 import { DEFAULT_HOOKS, normalizeHooks } from "./hooks.js";
 import { normalizeTapeKeywords } from "./tape/tape-gate.js";
-import type { MemoryFile, MemoryFrontmatter, MemoryMdSettings, MemoryMeta, MemoryStatus, ParsedFrontmatter } from "./types.js";
+import type {
+  MemoryFile,
+  MemoryFrontmatter,
+  MemoryMdSettings,
+  MemoryMeta,
+  MemoryStatus,
+  ParsedFrontmatter,
+} from "./types.js";
 import { DEFAULT_LOCAL_PATH, DEFAULT_TAPE_EXCLUDE_DIRS, escapeXml, expandHomePath, getProjectMeta } from "./utils.js";
 
 export * from "./types.js";
