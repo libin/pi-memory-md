@@ -9,8 +9,13 @@ const tempDirs: string[] = [];
 
 export function createTempDir(prefix: string): string {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), `${prefix}-`));
-  tempDirs.push(dir);
-  return dir;
+  // Canonicalize: on macOS os.tmpdir() is /var/... (a symlink to /private/var/...),
+  // while git/realpath in the code under test return the resolved path. Returning the
+  // realpath keeps fixture paths consistent with what the code emits, so path assertions
+  // don't fail on the /var vs /private/var mismatch.
+  const resolved = fs.realpathSync(dir);
+  tempDirs.push(resolved);
+  return resolved;
 }
 
 export function writeJson(filePath: string, value: unknown): void {
