@@ -64,7 +64,7 @@
   ],
   "scripts": {
     "prepare": "node .husky/install.mjs",
-    "check": "biome check --write --error-on-warnings . && tsgo --noEmit",
+    "check": "biome check --write --error-on-warnings . && tsc --noEmit",
     "test": "node --import tsx --test --test-concurrency=1 tests/*-test.ts",
     "test:file": "node --import tsx --test"
   },
